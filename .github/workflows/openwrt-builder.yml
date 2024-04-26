@@ -10,11 +10,24 @@
 # See /LICENSE for more information.
 #
 
-name: OpenWrt Builder
+name: LEDE Builder
 
 on:
+  schedule:
+    - cron: '0 16 * * 0'
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      cpu_overclock:
+        description: '超频 (默认880Mhz)'
+        required: true
+        default: '1100'
+        type: number
+      release:
+        description: '上传到release'
+        required: false
+        default: true
+        type: boolean
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
@@ -50,12 +63,29 @@ jobs:
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
 
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        swap-storage: true
+
     - name: Clone source code
       working-directory: /workdir
       run: |
         df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+    - name: Cache
+      uses: klever1988/cachewrtbuild@main
+      with:
+        ccache: 'true'
+        mixkey: 'ramips'
+        prefix: openwrt
 
     - name: Load custom feeds
       run: |
@@ -77,6 +107,19 @@ jobs:
         chmod +x $DIY_P2_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: Import CPU overclock configuration
+      if: github.event.inputs.cpu_overclock != '880' && !cancelled()
+      run: |
+        CPU_CLOCK=${{ inputs.cpu_overclock || env.DEFAULT_CPU_CLOCK }}
+        CPU_CLOCK_HEX=$(printf %x $((( ${CPU_CLOCK} /20-1)*16+2)))
+
+        cd openwrt
+        sed -i s/362/${CPU_CLOCK_HEX}/g $GITHUB_WORKSPACE/overclock.patch
+        mv $GITHUB_WORKSPACE/overclock.patch target/linux/ramips/patches-5.4/102-mt7621-fix-cpu-clk-add-clkdev.patch
+        sed -i s/362/${CPU_CLOCK_HEX}/g $GITHUB_WORKSPACE/overclock_5_10.patch
+        mv $GITHUB_WORKSPACE/overclock_5_10.patch target/linux/ramips/patches-5.10/322-mt7621-fix-cpu-clk-add-clkdev.patch
+        echo "OVERCLOCK_STATE=已超频${CPU_CLOCK}Mhz" >> $GITHUB_ENV
 
     - name: Download package
       id: package
@@ -129,7 +172,7 @@ jobs:
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
+        echo "release_tag=$(date +"%Y.%m.%d-%H%M") $OVERCLOCK_STATE" >> $GITHUB_OUTPUT
         touch release.txt
         [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
@@ -148,13 +191,13 @@ jobs:
       uses: Mattraks/delete-workflow-runs@main
       with:
         retain_days: 0
-        keep_minimum_runs: 2
+        keep_minimum_runs: 5
 
     - name: Remove old Releases
       uses: dev-drprasad/delete-older-releases@master
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       with:
-        keep_latest: 3
+        keep_latest: 5
         delete_tags: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
