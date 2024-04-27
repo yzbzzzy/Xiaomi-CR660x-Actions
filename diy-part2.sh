@@ -18,3 +18,12 @@
 
 # Modify hostname
 #sed -i 's/OpenWrt/P3TERX-Router/g' package/base-files/files/bin/config_generate
+
+FILE_PATH="feeds/kenzo/ddns-go/Makefile"
+
+if [ ! -f "$FILE_PATH" ]; then
+    echo "Error: File does not exist."
+    exit 1
+fi
+
+sed -i '/PKG_BUILD_FLAGS:=no-mips16/a PKG_USE_MIPS16:=0' "$FILE_PATH"
