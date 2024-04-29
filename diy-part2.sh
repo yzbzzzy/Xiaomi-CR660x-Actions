@@ -27,3 +27,7 @@ if [ ! -f "$FILE_PATH" ]; then
 fi
 
 sed -i '/PKG_BUILD_FLAGS:=no-mips16/a PKG_USE_MIPS16:=0' "$FILE_PATH"
+
+# 修复 batman-dev 编译不通过问题
+rm -f feeds/routing/batman-adv/src/compat-hacks.h
+wget https://raw.githubusercontent.com/No06/routing/main/batman-adv/src/compat-hacks.h -O feeds/routing/batman-adv/src/compat-hacks.h
