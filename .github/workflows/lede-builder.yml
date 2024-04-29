@@ -39,6 +39,7 @@ env:
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
+  DEFAULT_CPU_CLOCK: 1100 # OVERCLOCK
   TZ: Asia/Shanghai
 
 jobs:
@@ -170,7 +171,7 @@ jobs:
 
     - name: Generate release tag
       id: tag
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         echo "release_tag=$(date +"%Y.%m.%d-%H%M") $OVERCLOCK_STATE" >> $GITHUB_OUTPUT
         touch release.txt
@@ -179,7 +180,7 @@ jobs:
 
     - name: Upload firmware to release
       uses: softprops/action-gh-release@master
-      if: steps.tag.outputs.status == 'success' && !cancelled()
+      if: steps.organize.outputs.status == 'success' && steps.tag.outputs.status == 'success' && !cancelled()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
