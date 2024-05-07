@@ -120,7 +120,7 @@ jobs:
         mv $GITHUB_WORKSPACE/overclock.patch target/linux/ramips/patches-5.4/102-mt7621-fix-cpu-clk-add-clkdev.patch
         sed -i s/362/${CPU_CLOCK_HEX}/g $GITHUB_WORKSPACE/overclock_5_10.patch
         mv $GITHUB_WORKSPACE/overclock_5_10.patch target/linux/ramips/patches-5.10/322-mt7621-fix-cpu-clk-add-clkdev.patch
-        echo "OVERCLOCK_STATE=已超频${CPU_CLOCK}Mhz" >> $GITHUB_ENV
+        echo "OVERCLOCK_STATE=${CPU_CLOCK}Mhz" >> $GITHUB_ENV
 
     - name: Download package
       id: package
@@ -173,7 +173,7 @@ jobs:
       id: tag
       if: steps.organize.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M") $OVERCLOCK_STATE" >> $GITHUB_OUTPUT
+        echo "release_tag=$(date +"%Y.%m.%d-%H%M")_$OVERCLOCK_STATE" >> $GITHUB_OUTPUT
         touch release.txt
         [ ${UPLOAD_GOFILE} = true && ${{ steps.gofile.outputs.url }} ] && echo "🔗 [GoFile](${{ steps.gofile.outputs.url }})" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
